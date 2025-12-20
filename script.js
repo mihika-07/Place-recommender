@@ -4,11 +4,8 @@ let placeMarkers = [];
 let selectedLat, selectedLon;
 let routeControl = null;
 let selectedDestination = null;
-let currentPlaces = []; // ✅ store places for refresh
+let currentPlaces = []; 
 
-/* =========================
-   DISTANCE FUNCTION (HAVERSINE)
-========================= */
 function getDistance(lat1, lon1, lat2, lon2) {
   const R = 6371;
   const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -23,9 +20,6 @@ function getDistance(lat1, lon1, lat2, lon2) {
   return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-/* =========================
-   ICONS
-========================= */
 const redIcon = new L.Icon({
   iconUrl:
     "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png",
@@ -56,9 +50,6 @@ const icons = {
   hotel: createIcon("yellow")
 };
 
-/* =========================
-   INITIAL MAP
-========================= */
 navigator.geolocation.getCurrentPosition(pos => {
   selectedLat = pos.coords.latitude;
   selectedLon = pos.coords.longitude;
@@ -76,7 +67,6 @@ navigator.geolocation.getCurrentPosition(pos => {
     .bindPopup("Drag me to change location")
     .openPopup();
 
-  /* 🔄 UPDATE DISTANCE + ETA ON PIN DRAG */
   userMarker.on("dragend", e => {
     const pos = e.target.getLatLng();
     selectedLat = pos.lat;
@@ -87,9 +77,6 @@ navigator.geolocation.getCurrentPosition(pos => {
   });
 });
 
-/* =========================
-   FIND PLACES
-========================= */
 function findPlaces() {
   const category = document.getElementById("category").value;
   if (!category) return alert("Please select a category");
@@ -186,9 +173,6 @@ function findPlaces() {
     });
 }
 
-/* =========================
-   REFRESH DISTANCES + SORT
-========================= */
 function refreshDistancesAndResults() {
   currentPlaces.forEach(p => {
     const newDist = getDistance(selectedLat, selectedLon, p.lat, p.lon);
@@ -203,9 +187,6 @@ function refreshDistancesAndResults() {
   currentPlaces.forEach(p => resultsDiv.appendChild(p.element));
 }
 
-/* =========================
-   ROUTE + ETA
-========================= */
 function drawRoute(marker) {
   if (routeControl) map.removeControl(routeControl);
 
@@ -239,9 +220,6 @@ function drawRoute(marker) {
     .addTo(map);
 }
 
-/* =========================
-   REFRESH ROUTE ON PIN DRAG
-========================= */
 function refreshRouteIfNeeded() {
   if (selectedDestination) {
     drawRoute(
