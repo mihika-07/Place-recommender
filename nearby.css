@@ -1,4 +1,3 @@
-
 * {
   margin: 0;
   padding: 0;
@@ -27,7 +26,7 @@ h1 {
   font-size: 30px;
   font-weight: 700;
   margin-bottom: 25px;
-  color: #2b0a3d; 
+  color: #2b0a3d; /* 🔥 exact shade */
 }
 
 .controls {
@@ -85,6 +84,7 @@ h1 {
   box-shadow: 0 0 0 3px rgba(43, 10, 61, 0.25);
 }
 
+
 .controls button {
   background: linear-gradient(135deg, #3a0f55, #2b0a3d);
   border: none;
@@ -117,6 +117,7 @@ h1 {
   overflow-y: auto;
   padding-right: 6px;
 }
+
 
 .result-item {
   background: linear-gradient(135deg, #faf6fd, #efe6f5);
@@ -155,6 +156,7 @@ h1 {
   border-left: 6px solid #3a0f55;
   box-shadow: 0 10px 25px rgba(43, 10, 61, 0.35);
 }
+
 
 #results::-webkit-scrollbar {
   width: 6px;
