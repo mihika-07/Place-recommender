@@ -4,7 +4,7 @@ let placeMarkers = [];
 let selectedLat, selectedLon;
 let routeControl = null;
 let selectedDestination = null;
-let currentPlaces = []; 
+let placesCache = [];
 
 function getDistance(lat1, lon1, lat2, lon2) {
   const R = 6371;
@@ -20,25 +20,20 @@ function getDistance(lat1, lon1, lat2, lon2) {
   return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+
 const redIcon = new L.Icon({
-  iconUrl:
-    "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png",
-  shadowUrl:
-    "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+  iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png",
+  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
   iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41]
+  iconAnchor: [12, 41]
 });
 
 function createIcon(color) {
   return new L.Icon({
     iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-${color}.png`,
-    shadowUrl:
-      "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+    shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
     iconSize: [25, 41],
-    iconAnchor: [12, 41],
-    popupAnchor: [0, -38]
+    iconAnchor: [12, 41]
   });
 }
 
@@ -56,26 +51,26 @@ navigator.geolocation.getCurrentPosition(pos => {
 
   map = L.map("map").setView([selectedLat, selectedLon], 14);
 
+  setTimeout(() => map.invalidateSize(), 200);
+
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png")
     .addTo(map);
 
   userMarker = L.marker([selectedLat, selectedLon], {
     draggable: true,
     icon: redIcon
-  })
-    .addTo(map)
-    .bindPopup("Drag me to change location")
-    .openPopup();
+  }).addTo(map);
 
   userMarker.on("dragend", e => {
-    const pos = e.target.getLatLng();
-    selectedLat = pos.lat;
-    selectedLon = pos.lng;
+    const p = e.target.getLatLng();
+    selectedLat = p.lat;
+    selectedLon = p.lng;
 
-    refreshDistancesAndResults();
-    refreshRouteIfNeeded();
+    updateDistancesInResults();
+    refreshRouteAndETA();
   });
 });
+
 
 function findPlaces() {
   const category = document.getElementById("category").value;
@@ -83,7 +78,7 @@ function findPlaces() {
 
   placeMarkers.forEach(m => map.removeLayer(m));
   placeMarkers = [];
-  currentPlaces = [];
+  placesCache = [];
   selectedDestination = null;
 
   if (routeControl) {
@@ -126,7 +121,6 @@ function findPlaces() {
       data.elements.forEach(place => {
         const lat = place.lat || place.center.lat;
         const lon = place.lon || place.center.lon;
-        const distance = getDistance(selectedLat, selectedLon, lat, lon);
 
         const marker = L.marker([lat, lon], {
           icon: icons[category]
@@ -134,60 +128,65 @@ function findPlaces() {
 
         placeMarkers.push(marker);
 
-        const item = document.createElement("div");
-        item.className = "result-item";
+        const resultItem = document.createElement("div");
+        resultItem.className = "result-item";
 
         const distanceSpan = document.createElement("div");
         distanceSpan.className = "result-distance";
-        distanceSpan.innerText = `${distance.toFixed(2)} km`;
 
-        item.innerHTML = `
+        resultItem.innerHTML = `
           <div class="result-left">📍 ${place.tags.name || "Unnamed place"}</div>
         `;
-        item.appendChild(distanceSpan);
+        resultItem.appendChild(distanceSpan);
 
-        item.addEventListener("click", () => {
-          document
-            .querySelectorAll(".result-item")
+        resultItem.onclick = () => {
+          document.querySelectorAll(".result-item")
             .forEach(el => el.classList.remove("active"));
-          item.classList.add("active");
+          resultItem.classList.add("active");
 
-          selectedDestination = { lat, lon, name: place.tags.name };
+          selectedDestination = {
+            lat,
+            lon,
+            marker,
+            name: place.tags.name || "Unnamed place"
+          };
 
-          drawRoute(marker);
-        });
+          drawRouteWithETA();
+        };
 
-        resultsDiv.appendChild(item);
+        resultsDiv.appendChild(resultItem);
 
-        currentPlaces.push({
-          place,
+        placesCache.push({
           lat,
           lon,
           marker,
-          distanceSpan,
-          element: item
+          name: place.tags.name || "Unnamed place",
+          resultItem,
+          distanceSpan
         });
       });
 
-      refreshDistancesAndResults();
+      updateDistancesInResults();
     });
 }
 
-function refreshDistancesAndResults() {
-  currentPlaces.forEach(p => {
-    const newDist = getDistance(selectedLat, selectedLon, p.lat, p.lon);
-    p.distance = newDist;
-    p.distanceSpan.innerText = `${newDist.toFixed(2)} km`;
+function updateDistancesInResults() {
+  placesCache.forEach(p => {
+    p.distance = getDistance(selectedLat, selectedLon, p.lat, p.lon);
+    p.distanceSpan.innerText = `${p.distance.toFixed(2)} km`;
   });
 
-  currentPlaces.sort((a, b) => a.distance - b.distance);
+  placesCache.sort((a, b) => a.distance - b.distance);
 
   const resultsDiv = document.getElementById("results");
   resultsDiv.innerHTML = "";
-  currentPlaces.forEach(p => resultsDiv.appendChild(p.element));
+  placesCache.forEach(p => resultsDiv.appendChild(p.resultItem));
 }
 
-function drawRoute(marker) {
+
+function drawRouteWithETA() {
+  if (!selectedDestination) return;
+
   if (routeControl) map.removeControl(routeControl);
 
   routeControl = L.Routing.control({
@@ -200,16 +199,15 @@ function drawRoute(marker) {
     }),
     addWaypoints: false,
     draggableWaypoints: false,
-    fitSelectedRoutes: true,
     show: false,
     createMarker: () => null
   })
     .on("routesfound", e => {
-      const r = e.routes[0];
-      const km = (r.summary.totalDistance / 1000).toFixed(2);
-      const eta = Math.round(r.summary.totalTime / 60);
+      const route = e.routes[0];
+      const km = (route.summary.totalDistance / 1000).toFixed(2);
+      const eta = Math.round(route.summary.totalTime / 60);
 
-      marker
+      selectedDestination.marker
         .bindPopup(
           `<strong>${selectedDestination.name}</strong><br>
            Distance: ${km} km<br>
@@ -220,12 +218,9 @@ function drawRoute(marker) {
     .addTo(map);
 }
 
-function refreshRouteIfNeeded() {
+
+function refreshRouteAndETA() {
   if (selectedDestination) {
-    drawRoute(
-      currentPlaces.find(
-        p => p.lat === selectedDestination.lat
-      ).marker
-    );
+    drawRouteWithETA();
   }
 }
